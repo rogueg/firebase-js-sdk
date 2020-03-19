@@ -210,6 +210,9 @@ export class AsyncQueue {
   // assertion sanity-checks.
   private operationInProgress = false;
 
+  operationSignature = '<none>';
+  operationStart = 0;
+
   // List of TimerIds to fast-forward delays for.
   private timerIdsToSkip: TimerId[] = [];
 
@@ -281,6 +284,8 @@ export class AsyncQueue {
 
   private enqueueInternal<T extends unknown>(op: () => Promise<T>): Promise<T> {
     const newTail = this.tail.then(() => {
+      this.operationStart = Date.now();
+      this.operationSignature = op.toString();
       this.operationInProgress = true;
       return op()
         .catch((error: FirestoreError) => {
@@ -304,6 +309,8 @@ export class AsyncQueue {
           throw error;
         })
         .then(result => {
+          this.operationStart = 0;
+          this.operationSignature = '<none>';
           this.operationInProgress = false;
           return result;
         });
