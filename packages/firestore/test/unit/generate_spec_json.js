@@ -58,7 +58,7 @@ function main(args) {
 
   const testFiles = glob.sync('**/specs/*_spec.test.ts', { cwd: __dirname });
   if (testFiles.length === 0) {
-    throw new Error('No test files found');
+    throw new Error("No test files found");
   }
   for (var i = 0; i < testFiles.length; ++i) {
     var specName = testFiles[i].replace(/\.ts$/, '');
