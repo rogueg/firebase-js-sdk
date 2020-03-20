@@ -19,7 +19,7 @@
   "scripts": {
     "dev": "lerna run --parallel --scope @firebase/* --scope firebase --scope rxfire dev",
     "build": "lerna run --scope @firebase/* --scope firebase --scope rxfire prepare",
-    "prepush": "node tools/gitHooks/prepush.js",
+    "prepush": "echo RUNNING_PREPUSH",
     "link:packages": "lerna exec --scope @firebase/* --scope firebase --scope rxfire -- yarn link",
     "stage:packages": "./scripts/prepublish.sh",
     "repl": "node tools/repl.js",
