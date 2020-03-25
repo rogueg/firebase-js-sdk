@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2017 Google Inc.
+ * Copyright 2017 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,22 +23,26 @@ export type UpdateData = { [fieldPath: string]: any };
 
 export const CACHE_SIZE_UNLIMITED: number;
 
+export interface IndexedDbPersistenceSettings {
+  synchronizeTabs?: boolean;
+  cacheSizeBytes?: number;
+}
+
+export interface Persistence {}
+export function browserMemoryPersistence(): Persistence;
+
+export function browserIndexedDbPersistence(
+  settings?: IndexedDbPersistenceSettings
+): Persistence;
+
 export interface Settings {
   host?: string;
   ssl?: boolean;
-  timestampsInSnapshots?: boolean;
-  cacheSizeBytes?: number;
+  persistence: Persistence | Persistence[];
   experimentalForceLongPolling?: boolean;
 }
 
-export interface PersistenceSettings {
-  synchronizeTabs?: boolean;
-  experimentalTabSynchronization?: boolean;
-}
-
 export type LogLevel = 'debug' | 'error' | 'silent';
-
-export function setLogLevel(logLevel: LogLevel): void;
 
 export interface FirestoreDataConverter<T> {
   toFirestore(modelObject: T): DocumentData;
@@ -49,43 +53,51 @@ export interface FirestoreDataConverter<T> {
 export class FirebaseFirestore {
   private constructor();
 
-  settings(settings: Settings): void;
-
-  enablePersistence(settings?: PersistenceSettings): Promise<void>;
-
   collection(collectionPath: string): CollectionReference<DocumentData>;
 
   doc(documentPath: string): DocumentReference<DocumentData>;
 
   collectionGroup(collectionId: string): Query<DocumentData>;
+}
 
-  runTransaction<T>(
-    updateFunction: (transaction: Transaction) => Promise<T>
-  ): Promise<T>;
+export function setLogLevel(logLevel: LogLevel): void;
 
-  batch(): WriteBatch;
+export function initialize(
+  firestore: FirebaseFirestore,
+  settings: Settings
+): void;
 
-  app: any;
+export function waitForPendingWrites(
+  firestore: FirebaseFirestore
+): Promise<void>;
 
-  clearPersistence(): Promise<void>;
+export function terminate(firestore: FirebaseFirestore): Promise<void>;
 
-  enableNetwork(): Promise<void>;
+export function clearPersistence(firestore: FirebaseFirestore): Promise<void>;
 
-  disableNetwork(): Promise<void>;
+export function enableNetwork(firestore: FirebaseFirestore): Promise<void>;
 
-  waitForPendingWrites(): Promise<void>;
+export function disableNetwork(firestore: FirebaseFirestore): Promise<void>;
 
-  onSnapshotsInSync(observer: {
+export function onSnapshotsInSync(
+  firestore: FirebaseFirestore,
+  observer: {
     next?: (value: void) => void;
     error?: (error: Error) => void;
     complete?: () => void;
-  }): () => void;
-  onSnapshotsInSync(onSync: () => void): () => void;
+  }
+): () => void;
+export function onSnapshotsInSync(
+  firestore: FirebaseFirestore,
+  onSync: () => void
+): () => void;
 
-  terminate(): Promise<void>;
+export function writeBatch(firestore: FirebaseFirestore): WriteBatch;
 
-  INTERNAL: { delete: () => Promise<void> };
-}
+export function transaction<T>(
+  firestore: FirebaseFirestore,
+  updateFunction: (transaction: Transaction) => Promise<T>
+): Promise<T>;
 
 export class GeoPoint {
   constructor(latitude: number, longitude: number);
@@ -200,46 +212,67 @@ export class DocumentReference<T = DocumentData> {
 
   isEqual(other: DocumentReference<T>): boolean;
 
-  set(data: T, options?: SetOptions): Promise<void>;
+  withConverter<U>(converter: FirestoreDataConverter<U>): DocumentReference<U>;
+}
 
-  update(data: UpdateData): Promise<void>;
-  update(
-    field: string | FieldPath,
-    value: any,
-    ...moreFieldsAndValues: any[]
-  ): Promise<void>;
+export function getDocument<T>(
+  reference: DocumentReference<T>,
+  options?: GetOptions
+): Promise<DocumentSnapshot<T>>;
 
-  delete(): Promise<void>;
+export function deleteDocument(reference: DocumentReference): Promise<void>;
 
-  get(options?: GetOptions): Promise<DocumentSnapshot<T>>;
+export function updateDocument(
+  reference: DocumentReference,
+  data: UpdateData
+): Promise<void>;
+export function updateDocument(
+  field: string | FieldPath,
+  value: any,
+  ...moreFieldsAndValues: any[]
+): Promise<void>;
 
-  onSnapshot(observer: {
+export function setDocument<T>(
+  reference: DocumentReference<T>,
+  data: T,
+  options?: SetOptions
+): Promise<void>;
+
+export function addDocument<T>(
+  reference: CollectionReference<T>,
+  data: T
+): Promise<DocumentSnapshot<T>>;
+
+export function onSnapshot<T>(
+  reference: DocumentReference<T>,
+  observer: {
     next?: (snapshot: DocumentSnapshot<T>) => void;
     error?: (error: FirestoreError) => void;
     complete?: () => void;
-  }): () => void;
-  onSnapshot(
-    options: SnapshotListenOptions,
-    observer: {
-      next?: (snapshot: DocumentSnapshot<T>) => void;
-      error?: (error: Error) => void;
-      complete?: () => void;
-    }
-  ): () => void;
-  onSnapshot(
-    onNext: (snapshot: DocumentSnapshot<T>) => void,
-    onError?: (error: Error) => void,
-    onCompletion?: () => void
-  ): () => void;
-  onSnapshot(
-    options: SnapshotListenOptions,
-    onNext: (snapshot: DocumentSnapshot<T>) => void,
-    onError?: (error: Error) => void,
-    onCompletion?: () => void
-  ): () => void;
-
-  withConverter<U>(converter: FirestoreDataConverter<U>): DocumentReference<U>;
-}
+  }
+): () => void;
+export function onSnapshot<T>(
+  reference: DocumentReference<T>,
+  options: SnapshotListenOptions,
+  observer: {
+    next?: (snapshot: DocumentSnapshot<T>) => void;
+    error?: (error: Error) => void;
+    complete?: () => void;
+  }
+): () => void;
+export function onSnapshot<T>(
+  reference: DocumentReference<T>,
+  onNext: (snapshot: DocumentSnapshot<T>) => void,
+  onError?: (error: Error) => void,
+  onCompletion?: () => void
+): () => void;
+export function onSnapshot<T>(
+  reference: DocumentReference<T>,
+  options: SnapshotListenOptions,
+  onNext: (snapshot: DocumentSnapshot<T>) => void,
+  onError?: (error: Error) => void,
+  onCompletion?: () => void
+): () => void;
 
 export interface SnapshotOptions {
   readonly serverTimestamps?: 'estimate' | 'previous' | 'none';
@@ -321,35 +354,44 @@ export class Query<T = DocumentData> {
 
   isEqual(other: Query<T>): boolean;
 
-  get(options?: GetOptions): Promise<QuerySnapshot<T>>;
+  withConverter<U>(converter: FirestoreDataConverter<U>): Query<U>;
+}
 
-  onSnapshot(observer: {
+export function getDocuments<T>(
+  query: Query<T>,
+  options?: GetOptions
+): Promise<QuerySnapshot<T>>;
+
+export function onSnapshot<T>(
+  query: Query<T>,
+  observer: {
     next?: (snapshot: QuerySnapshot<T>) => void;
     error?: (error: Error) => void;
     complete?: () => void;
-  }): () => void;
-  onSnapshot(
-    options: SnapshotListenOptions,
-    observer: {
-      next?: (snapshot: QuerySnapshot<T>) => void;
-      error?: (error: Error) => void;
-      complete?: () => void;
-    }
-  ): () => void;
-  onSnapshot(
-    onNext: (snapshot: QuerySnapshot<T>) => void,
-    onError?: (error: Error) => void,
-    onCompletion?: () => void
-  ): () => void;
-  onSnapshot(
-    options: SnapshotListenOptions,
-    onNext: (snapshot: QuerySnapshot<T>) => void,
-    onError?: (error: Error) => void,
-    onCompletion?: () => void
-  ): () => void;
-
-  withConverter<U>(converter: FirestoreDataConverter<U>): Query<U>;
-}
+  }
+): () => void;
+export function onSnapshot<T>(
+  query: Query<T>,
+  options: SnapshotListenOptions,
+  observer: {
+    next?: (snapshot: QuerySnapshot<T>) => void;
+    error?: (error: Error) => void;
+    complete?: () => void;
+  }
+): () => void;
+export function onSnapshot<T>(
+  query: Query<T>,
+  onNext: (snapshot: QuerySnapshot<T>) => void,
+  onError?: (error: Error) => void,
+  onCompletion?: () => void
+): () => void;
+export function onSnapshot<T>(
+  query: Query<T>,
+  options: SnapshotListenOptions,
+  onNext: (snapshot: QuerySnapshot<T>) => void,
+  onError?: (error: Error) => void,
+  onCompletion?: () => void
+): () => void;
 
 export class QuerySnapshot<T = DocumentData> {
   private constructor();
@@ -399,27 +441,20 @@ export class CollectionReference<T = DocumentData> extends Query<T> {
 
 export class FieldValue {
   private constructor();
-
-  static serverTimestamp(): FieldValue;
-
-  static delete(): FieldValue;
-
-  static arrayUnion(...elements: any[]): FieldValue;
-
-  static arrayRemove(...elements: any[]): FieldValue;
-
-  static increment(n: number): FieldValue;
-
   isEqual(other: FieldValue): boolean;
 }
 
+export function serverTimestamp(): FieldValue;
+export function remove(): FieldValue;
+export function arrayUnion(...elements: any[]): FieldValue;
+export function arrayRemove(...elements: any[]): FieldValue;
+
 export class FieldPath {
   constructor(...fieldNames: string[]);
-
-  static documentId(): FieldPath;
-
   isEqual(other: FieldPath): boolean;
 }
+
+export function documentId(): FieldPath;
 
 export type FirestoreErrorCode =
   | 'cancelled'
