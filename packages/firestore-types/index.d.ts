@@ -40,6 +40,7 @@ export interface Settings {
   host?: string;
   ssl?: boolean;
   persistence: Persistence | Persistence[];
+  logLevel: LogLevel
   experimentalForceLongPolling?: boolean;
 }
 
@@ -61,7 +62,6 @@ export class FirebaseFirestore {
   collectionGroup(collectionId: string): Query<DocumentData>;
 }
 
-export function setLogLevel(logLevel: LogLevel): void;
 
 export function initializeFirestore(
   firestore: FirebaseFirestore,
@@ -72,7 +72,7 @@ export function waitForPendingWrites(
   firestore: FirebaseFirestore
 ): Promise<void>;
 
-export function terminate(firestore: FirebaseFirestore): Promise<void>;
+export function terminateFirestore(firestore: FirebaseFirestore): Promise<void>;
 
 export function clearPersistence(firestore: FirebaseFirestore): Promise<void>;
 
@@ -95,7 +95,7 @@ export function onSnapshotsInSync(
 
 export function writeBatch(firestore: FirebaseFirestore): WriteBatch;
 
-export function transaction<T>(
+export function runTransaction<T>(
   firestore: FirebaseFirestore,
   updateFunction: (transaction: Transaction) => Promise<T>
 ): Promise<T>;
