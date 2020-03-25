@@ -433,11 +433,6 @@ export class FirestoreClient {
     });
   }
 
-  stillWorking(): boolean {
-    const ts = this.asyncQueue.operationStart;
-    return ts === 0 || ts > Date.now() - (1000 * 60);
-  }
-
   /**
    * Returns a Promise that resolves when all writes that were pending at the time this
    * method was called received server acknowledgement. An acknowledgement can be either acceptance

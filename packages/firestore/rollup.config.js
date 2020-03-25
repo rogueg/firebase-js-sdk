@@ -102,11 +102,9 @@ export function resolveMemoryExterns(deps, externsId, referencedBy) {
 const es5BuildPlugins = [
   typescriptPlugin({
     typescript,
-    transformers: appendPrivatePrefixTransformers,
     cacheRoot: `./.cache/es5.mangled/`
   }),
-  json(),
-  terser(manglePrivatePropertiesOptions)
+  json()
 ];
 
 const es2017BuildPlugins = [
@@ -132,41 +130,6 @@ const browserBuilds = [
     plugins: es5BuildPlugins,
     external: resolveBrowserExterns
   },
-  // ES5 ESM Build (memory-only)
-  {
-    input: 'index.memory.ts',
-    output: {
-      file: path.resolve('./memory', memoryPkg.module),
-      format: 'es',
-      sourcemap: true
-    },
-    plugins: es5BuildPlugins,
-    external: (id, referencedBy) =>
-      resolveMemoryExterns(browserDeps, id, referencedBy)
-  },
-  // ES2017 ESM build (with persistence)
-  {
-    input: 'index.ts',
-    output: {
-      file: pkg.esm2017,
-      format: 'es',
-      sourcemap: true
-    },
-    plugins: es5BuildPlugins,
-    external: resolveBrowserExterns
-  },
-  // ES2017 ESM build (memory-only)
-  {
-    input: 'index.memory.ts',
-    output: {
-      file: path.resolve('./memory', memoryPkg.esm2017),
-      format: 'es',
-      sourcemap: true
-    },
-    plugins: es2017BuildPlugins,
-    external: (id, referencedBy) =>
-      resolveMemoryExterns(browserDeps, id, referencedBy)
-  },
   // ES5 CJS Build (with persistence)
   //
   // This build is based on the mangling in the ESM build above, since
@@ -174,19 +137,6 @@ const browserBuilds = [
   {
     input: pkg.module,
     output: { file: pkg.browser, format: 'cjs', sourcemap: true },
-    plugins: [sourcemaps()]
-  },
-  // ES5 CJS Build (memory-only)
-  //
-  // This build is based on the mangling in the ESM build above, since
-  // Terser's Property name mangling doesn't work well with CJS's syntax.
-  {
-    input: path.resolve('./memory', memoryPkg.module),
-    output: {
-      file: path.resolve('./memory', memoryPkg.browser),
-      format: 'cjs',
-      sourcemap: true
-    },
     plugins: [sourcemaps()]
   }
 ];
@@ -205,27 +155,6 @@ const nodeBuildPlugins = [
 ];
 
 const nodeBuilds = [
-  // ES5 CJS build (with persistence)
-  {
-    input: 'index.node.ts',
-    output: [{ file: pkg.main, format: 'cjs', sourcemap: true }],
-    plugins: nodeBuildPlugins,
-    external: resolveNodeExterns
-  },
-  // ES5 CJS build (memory-only)
-  {
-    input: 'index.node.memory.ts',
-    output: [
-      {
-        file: path.resolve('./memory', memoryPkg.main),
-        format: 'cjs',
-        sourcemap: true
-      }
-    ],
-    plugins: nodeBuildPlugins,
-    external: (id, referencedBy) =>
-      resolveMemoryExterns(nodeDeps, id, referencedBy)
-  }
 ];
 
 export default [...browserBuilds, ...nodeBuilds];

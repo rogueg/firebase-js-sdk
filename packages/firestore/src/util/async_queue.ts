@@ -191,9 +191,18 @@ class DelayedOperation<T extends unknown> implements CancelablePromise<T> {
   }
 }
 
+interface PendingOp {
+  op: Function
+  signature: string
+  attempts: number
+  resolve: Function
+  reject: Function
+  promise: Promise<void>
+};
+
 export class AsyncQueue {
-  // The last promise in the queue.
-  private tail: Promise<unknown> = Promise.resolve();
+  // all operations waiting to be processed
+  private pending: PendingOp[] = [];
 
   // Is this AsyncQueue being shut down? Once it is set to true, it will not
   // be changed again.
@@ -209,9 +218,7 @@ export class AsyncQueue {
   // Flag set while there's an outstanding AsyncQueue operation, used for
   // assertion sanity-checks.
   private operationInProgress = false;
-
-  operationSignature = '<none>';
-  operationStart = 0;
+  private operationStart = 0;
 
   // List of TimerIds to fast-forward delays for.
   private timerIdsToSkip: TimerId[] = [];
@@ -283,40 +290,85 @@ export class AsyncQueue {
   }
 
   private enqueueInternal<T extends unknown>(op: () => Promise<T>): Promise<T> {
-    const newTail = this.tail.then(() => {
-      this.operationStart = Date.now();
-      this.operationSignature = op.toString();
-      this.operationInProgress = true;
-      return op()
-        .catch((error: FirestoreError) => {
-          this.failure = error;
-          this.operationInProgress = false;
-          const message = error.stack || error.message || '';
-          log.error('INTERNAL UNHANDLED ERROR: ', message);
-
-          // Escape the promise chain and throw the error globally so that
-          // e.g. any global crash reporting library detects and reports it.
-          // (but not for simulated errors in our tests since this breaks mocha)
-          if (message.indexOf('Firestore Test Simulated Error') < 0) {
-            setTimeout(() => {
-              throw error;
-            }, 0);
-          }
-
-          // Re-throw the error so that this.tail becomes a rejected Promise and
-          // all further attempts to chain (via .then) will just short-circuit
-          // and return the rejected Promise.
-          throw error;
-        })
-        .then(result => {
-          this.operationStart = 0;
-          this.operationSignature = '<none>';
-          this.operationInProgress = false;
-          return result;
-        });
+    let resolve: Function, reject: Function;
+    const promise = new Promise((res, rej) => {
+      resolve = res;
+      reject = rej;
     });
-    this.tail = newTail;
-    return newTail;
+
+    // @ts-ignore
+    this.pending.push({op, attempts: 0, resolve, reject, promise} as PendingOp);
+
+    if (!this.operationInProgress) {
+      this.runNext();
+    }
+
+    return promise as Promise<T>;
+  }
+
+  private withTimeout<T extends unknown> (promise: Promise<T>, ms: number): Promise<T> {
+    let hasFinished = false;
+
+    const timeout = new Promise((_, reject) => {
+      setTimeout(() => {
+        if (!hasFinished) {
+          reject('Timeout');
+        }
+      }, ms);
+    });
+
+    return Promise.race([promise.then(() => { hasFinished = true; }), timeout]) as Promise<T>;
+  }
+
+  private runNext (): void {
+    if (this.operationInProgress || this.pending.length === 0) { return; }
+
+    const toRun = this.pending[0];
+    toRun.attempts++;
+    this.operationStart = Date.now();
+    this.operationInProgress = true;
+
+    let runningOp = toRun.op();
+
+
+    // @ts-ignore
+    if (window.TRIGGER_FAILED_FIRESTORE_OP) {
+      runningOp = new Promise(() => {});
+      // @ts-ignore
+      window.TRIGGER_FAILED_FIRESTORE_OP = false;
+    }
+
+    this.withTimeout(runningOp, 10 * 1000).then((res: unknown) => {
+      this.operationInProgress = false;
+      this.pending.shift();
+      this.runNext();
+      return res;
+    })
+    .catch((e: FirestoreError) => {
+      this.operationInProgress = false;
+
+      // @ts-ignore
+      window.Profile('log.firestoreError', {message: e.message, signature: toRun.op.toString(), attempt: toRun.attempts, duration: Date.now() - this.operationStart});
+
+      // @ts-ignore
+      window.Bugsnag.notify(e);
+
+      // give up on the operation, throw an error, and continue on
+      if (toRun.attempts >= 3) {
+        this.pending.shift();
+
+        // Escape the promise chain and throw the error globally so that
+        // any global crash reporting library detects and reports it.
+        // (but not for simulated errors in our tests since this breaks mocha)
+        if ((e.message || '').indexOf('Firestore Test Simulated Error') < 0) {
+          setTimeout(() => { throw e; }, 0);
+        }
+      }
+
+      // Add a slight delay before trying again. If it was an I/O problem,
+      // waiting often helps.
+      setTimeout(() => this.runNext(), 5000);
+    });
   }
 
   /**
@@ -384,11 +436,9 @@ export class AsyncQueue {
     // operations. Keep draining the queue until the tail is no longer advanced,
     // which indicates that no more new operations were enqueued and that all
     // operations were executed.
-    let currentTail: Promise<unknown>;
-    do {
-      currentTail = this.tail;
-      await currentTail;
-    } while (currentTail !== this.tail);
+    while (this.pending.length > 0) {
+      this.runNext();
+    }
   }
 
   /**
