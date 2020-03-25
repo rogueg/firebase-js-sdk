@@ -29,6 +29,7 @@ export interface IndexedDbPersistenceSettings {
 }
 
 export interface Persistence {}
+
 export function browserMemoryPersistence(): Persistence;
 
 export function browserIndexedDbPersistence(
@@ -62,7 +63,7 @@ export class FirebaseFirestore {
 
 export function setLogLevel(logLevel: LogLevel): void;
 
-export function initialize(
+export function initializeFirestore(
   firestore: FirebaseFirestore,
   settings: Settings
 ): void;
