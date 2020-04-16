@@ -312,7 +312,7 @@ export class AsyncQueue {
     const timeout = new Promise((_, reject) => {
       setTimeout(() => {
         if (!hasFinished) {
-          reject('Timeout');
+          reject(new Error('Timeout'));
         }
       }, ms);
     });
@@ -338,7 +338,7 @@ export class AsyncQueue {
       window.TRIGGER_FAILED_FIRESTORE_OP = false;
     }
 
-    this.withTimeout(runningOp, 10 * 1000).then((res: unknown) => {
+    this.withTimeout(runningOp, 2 * 60 * 1000).then((res: unknown) => {
       this.operationInProgress = false;
       this.pending.shift();
       this.runNext();
@@ -352,6 +352,10 @@ export class AsyncQueue {
 
       // @ts-ignore
       window.Bugsnag.notify(e);
+
+      // @ts-ignore
+      // add another log, for some reason the above isn't triggering
+      window.Bugsnag.notify(new Error(e.message || 'Error without message'));
 
       // give up on the operation, throw an error, and continue on
       if (toRun.attempts >= 3) {
