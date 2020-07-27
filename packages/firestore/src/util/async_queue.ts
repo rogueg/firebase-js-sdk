@@ -348,7 +348,10 @@ export class AsyncQueue {
       this.operationInProgress = false;
 
       // @ts-ignore
-      window.Profile('log.firestoreError', {message: e.message, signature: toRun.op.toString(), attempt: toRun.attempts, duration: Date.now() - this.operationStart});
+      let logs = (window.FIRESTORE_LOG_BUFFER || []).join('\n')
+
+      // @ts-ignore
+      window.Profile('log.firestoreError', {message: e.message, signature: toRun.op.toString(), logs, attempt: toRun.attempts, duration: Date.now() - this.operationStart});
 
       // @ts-ignore
       window.Bugsnag.notify(e);

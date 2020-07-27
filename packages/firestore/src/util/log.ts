@@ -59,6 +59,17 @@ export function setLogLevel(newLevel: LogLevel): void {
 }
 
 export function debug(tag: string, msg: string, ...obj: unknown[]): void {
+  // @ts-ignore
+  window.FIRESTORE_LOG_BUFFER = window.FIRESTORE_LOG_BUFFER || []
+  // @ts-ignore
+  window.FIRESTORE_LOG_BUFFER.push(`Firestore (${SDK_VERSION}) [${tag}]: ${msg}`, ...obj.map(argToString))
+  // @ts-ignore
+  if (window.FIRESTORE_LOG_BUFFER.length > 30) {
+    // @ts-ignore
+    window.FIRESTORE_LOG_BUFFER.shift()
+  }
+
+
   if (logClient.logLevel <= FirebaseLogLevel.DEBUG) {
     const args = obj.map(argToString);
     logClient.debug(`Firestore (${SDK_VERSION}) [${tag}]: ${msg}`, ...args);
@@ -66,6 +77,16 @@ export function debug(tag: string, msg: string, ...obj: unknown[]): void {
 }
 
 export function error(msg: string, ...obj: unknown[]): void {
+  // @ts-ignore
+  window.FIRESTORE_LOG_BUFFER = window.FIRESTORE_LOG_BUFFER || []
+  // @ts-ignore
+  window.FIRESTORE_LOG_BUFFER.push(`Firestore (${SDK_VERSION}): ${msg}`, ...obj.map(argToString))
+  // @ts-ignore
+  if (window.FIRESTORE_LOG_BUFFER.length > 30) {
+    // @ts-ignore
+    window.FIRESTORE_LOG_BUFFER.shift()
+  }
+
   if (logClient.logLevel <= FirebaseLogLevel.ERROR) {
     const args = obj.map(argToString);
     logClient.error(`Firestore (${SDK_VERSION}): ${msg}`, ...args);
